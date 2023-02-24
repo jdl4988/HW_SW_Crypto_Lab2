@@ -1,15 +1,61 @@
+/******************************************************************************
+*
+* Copyright (C) 2009 - 2014 Xilinx, Inc.  All rights reserved.
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in
+* all copies or substantial portions of the Software.
+*
+* Use of the Software is limited solely to applications:
+* (a) running on a Xilinx device, or
+* (b) that interact with a Xilinx device through a bus or interconnect.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+* XILINX  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+* WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+* OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*
+* Except as contained in this notice, the name of the Xilinx shall not be used
+* in advertising or otherwise to promote the sale, use or other dealings in
+* this Software without prior written authorization from Xilinx.
+*
+******************************************************************************/
+
+/*
+ * helloworld.c: simple test application
+ *
+ * This application configures UART 16550 to baud rate 9600.
+ * PS7 UART (Zynq) is not initialized by this application, since
+ * bootrom/bsp configures it to baud rate 115200
+ *
+ * ------------------------------------------------
+ * | UART TYPE   BAUD RATE                        |
+ * ------------------------------------------------
+ *   uartns550   9600
+ *   uartlite    Configurable only in HW design
+ *   ps7_uart    115200 (configured by bootrom/bsp)
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include "main.h"
+#include "helloworld.h"
+
+
+
+
 
 int main(){
-    uint32_t a = 0b1100;
-    uint32_t b = 0b111;
-    uint32_t f = 0b10011;
-    char generators[500];
     uint32_t i;
-    
     printf("Addition:\r\n");
     for(i = 0; i < 0xff; i++){
         printf("(0xCB + %x) mod 0x11b: %x\r\n", i, bff_add(0xcb, i, 0x11b));
@@ -17,71 +63,30 @@ int main(){
     //printf("result:%x\n\r", bff_mult(a,b,f));
     printf("Multiplication:\r\n");
     for(i = 0; i < 0xff; i++){
-        printf("(0x8d * %x) mod 0x11b: %x\r\n", i, bff_mult(0xcb, i, 0x11b));
+        printf("(0xCB * %x) mod 0x11b: %x\r\n", i, bff_mult(0xcb, i, 0x11b));
     }
-    printf("Division:\r\n");
+    printf("Divition:\r\n");
     for(i = 1; i < 0xff; i++){
         printf("(0xCB / %x): %x\r\n", i, bff_div(0xcb, i));
     }
 
-    printf("Generators for 2^8: %s", generators);
+    printf("Generators for 256 in 0x11b:\r\n");
     get_generators(256, 0x11b);
-	
-	printf("Extended Euclidian:\r\n");
-	uint32_t alpha;
-	uint32_t beta;
-	uint32_t gcd;
-    for(i = 1; i < 0xff; i++){
-		gcd = extended_euclidean(0x11b, i, 0x11b, &alpha, &beta);
-		if(gcd == 1){
-			printf("%x^-1: %x in 0x11b\r\n", i, beta);
-		}
-		else{
-			printf("%x^-1: DNE in 0x11b\r\n", i);
-		}
-    }
     //printf("result:%d\r\n", bff_div(0b10101, 0b10));
    //printf("result:%d\r\n", bff_mod(0b10101, 0b10));
-    //printf("eea:%x\r\n", extended_euclidean(0b10011, 0b101, 0x11b));
+    //printf("eea:%x\r\n", extended_euclidean(0b10011, 0b101));
     //for(i = 0; i < 0xff; i++){
     //    printf("0xCB mod %x = %x\r\n", i, bff_mod(0xcb, i));
     //}
-
-	printf("SUM: 0x%x\r\n", bff_add(0xC3, 0x68, 0x11b));
-	printf("mult: 0x%x\r\n", bff_mult(0x2, 0x8D, 0x11b));
-	printf("mult: 0x%x\r\n", bff_mult(0b1000010, 0b100001, 0x11b));
-	
     return 0;
 }
 
-/*
-	return an array of 128 bits from the four parameters 
-*/
-/*
-uint8_t* get_array(uint32_t a, uint32_t b, uint32_t c, uint32_t d){
-    uint8_t* res = malloc(128*sizeof(uint8_t));
-    return res;
-}
-*/
 uint32_t bff_add(uint32_t a, uint32_t b, uint32_t f){
     uint32_t res = a ^ b;
     res = bff_mod(res, f);
     return res;
 }
-/*
-uint8_t* bff_add128(uint8_t* a, uint8_t* b, uint8_t* f){
-    uint8_t* res = malloc(128*sizeof(uint8_t));
-	uint32_t i;
-	for(i = 0; i < 128){
-		res[i] = a[i]^b[i];
-	}
-	
-	//= a ^ b;
-    //uint32_t deg = get_degree(f);
-    //res = bff_mod(res, f);
-    return res;
-}
-*/
+
 uint32_t bff_mult(uint32_t a, uint32_t b, uint32_t f){
     uint32_t total = 0;
     uint32_t deg = get_degree(f);
@@ -114,7 +119,7 @@ uint32_t bff_mod(uint32_t a, uint32_t b){
 uint32_t bff_div(uint32_t a, uint32_t b){
     uint32_t b_deg = get_degree(b);
     uint32_t a_deg = get_degree(a);
-    uint32_t i, current = a;
+    uint32_t current = a;
     uint32_t res = 0;
     while(a_deg >= b_deg){
         uint32_t diff = a_deg - b_deg;
@@ -126,6 +131,7 @@ uint32_t bff_div(uint32_t a, uint32_t b){
     }
     return res;
 }
+
 
 uint32_t get_degree(uint32_t a){
     uint32_t degree = -1;
@@ -146,22 +152,17 @@ uint32_t get_list_order(uint32_t* list, uint32_t size){
             }
         }
     }
-    return order; 
+    return order;
 }
 
 void get_generators(uint32_t m, uint32_t f){
-    uint32_t vals[255];
-    uint32_t range[255];
-    uint32_t r, c, i, gen_size = 0;
+    uint32_t r, c, gen_size = 0;
 
     for(r = 1; r < m; r ++){
         uint32_t count = 0;
         uint32_t pow_res = 1;
         for(c = 1; c < m; c++){
             pow_res = bff_mult(pow_res, r, f);
-			//if(r == 2){
-				//printf("\r\npower res:%x", pow_res);
-			//}
             count++;
             if(pow_res == 1)
                 break;
@@ -170,11 +171,10 @@ void get_generators(uint32_t m, uint32_t f){
             if(gen_size > 0)
                 printf(", ");
             printf("%x", r);
-            vals[gen_size] = r;
             gen_size ++;
         }
     }
-	printf("\r\nNum Generators: %d\r\n", gen_size);
+    printf("\r\nNum Gens:%d\r\n", gen_size);
 }
 
 uint32_t power(uint32_t a, uint32_t b, uint32_t f){
@@ -185,43 +185,18 @@ uint32_t power(uint32_t a, uint32_t b, uint32_t f){
     return output;
 }
 
-uint32_t extended_euclidean(uint32_t a, uint32_t b, uint32_t f, uint32_t* alpha_out, uint32_t* beta_out){
-    if(b == 1){
-		*alpha_out = 0;
-		*beta_out = 1;
-		return 1;
-	}
-	uint32_t alpha2 = 1;
-	uint32_t alpha1 = 0;
-	uint32_t beta2 = 0;
-	uint32_t beta1 = 1;
-	uint32_t r1 = b;
-	uint32_t r2 = a;
-	
-	uint32_t r = 3;
-	uint32_t q, alpha, beta;
-	while(r >= 2){
-		q = bff_div(r2,r1);
-		alpha = bff_add(alpha2, bff_mult(alpha1, q, f), f);
-		beta = bff_add(beta2, bff_mult(beta1, q, f), f);
-		r = bff_mod(r2, r1);
-		alpha2 = alpha1;
-		alpha1 = alpha;
-		beta2 = beta1;
-		beta1 = beta;
-		r2 = r1;
-		r1 = r;
-	}
-	if(r == 1){
-		*alpha_out = alpha;
-		*beta_out = beta;
-		return r;
-	}
-	else{
-		alpha_out = NULL;
-		beta_out = NULL;
-		return r2;
-	}
-    return 0;
+uint32_t extended_euclidean(uint32_t a, uint32_t b){
+    uint32_t r0;
+    uint32_t r1;
+    uint32_t q0 = bff_div(a, b);
+    printf("mul:%x\r\n", bff_mult(b, q0, 0xff));
+    r0 = bff_add(a, bff_mult(b, q0, a), a);
+    printf("q:%x\r\n", q0);
+    printf("r:%x\r\n", r0);
+    uint32_t q1 = bff_div(b, r0);
+    while(r1 > 0){
+      //  q0 = bff_div();
+    }
+
 }
 
